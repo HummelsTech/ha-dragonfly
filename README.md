@@ -4,6 +4,8 @@
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+> 💬 Questions or feedback? Join the discussion on the [Home Assistant community](https://community.home-assistant.io/t/packages-postnl-dhl-nl-dpd-and-gls-parcel-integration/112433/).
+
 A custom Home Assistant integration that tracks your [Dragonfly Shipping](https://dragonflyshipping.nl) parcels in the Netherlands. No account is needed — you enter the Track & Trace code yourself, just like on the Dragonfly website. Not even a postal code is required.
 
 Part of the same family as the [DHL](https://github.com/ha-parcel-integrations/ha-dhl-nl), [PostNL](https://github.com/ha-parcel-integrations/ha-postnl), [DPD](https://github.com/ha-parcel-integrations/ha-dpd) and [GLS](https://github.com/ha-parcel-integrations/ha-gls) integrations: it publishes the same canonical parcel format, statuses and events, so it plugs straight into the [Parcel Aggregator](https://github.com/ha-parcel-integrations/ha-parcel-aggregator) and cross-carrier automations.
