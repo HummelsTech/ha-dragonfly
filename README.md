@@ -1,6 +1,6 @@
 # Dragonfly Shipping Parcel Tracker
 
-[![Release](https://img.shields.io/github/v/release/HummelsTech/ha-dragonfly.svg)](https://github.com/HummelsTech/ha-dragonfly/releases)
+[![Release](https://img.shields.io/github/v/release/ha-parcel-integrations/ha-dragonfly.svg)](https://github.com/ha-parcel-integrations/ha-dragonfly/releases)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -41,7 +41,7 @@ Part of the same family as the [DHL](https://github.com/peternijssen/ha-dhl-nl),
 ### HACS (recommended)
 
 1. In HACS, choose the three-dot menu → **Custom repositories**.
-2. Add `https://github.com/HummelsTech/ha-dragonfly` as an **Integration**.
+2. Add `https://github.com/ha-parcel-integrations/ha-dragonfly` as an **Integration**.
 3. Install **Dragonfly Shipping** and restart Home Assistant.
 
 ### Manual
@@ -126,7 +126,7 @@ logger:
 ## Troubleshooting
 
 - **A parcel shows `unknown`** — Dragonfly has not scanned it yet (their API answers `not_found` until the first scan), or the code is wrong. It will pick up automatically once scanned.
-- **A status logs "Unrecognised Dragonfly step"** — please [open an issue](https://github.com/HummelsTech/ha-dragonfly/issues/new) with the logged line so the mapping can be extended.
+- **A status logs "Unrecognised Dragonfly step"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-dragonfly/issues/new) with the logged line so the mapping can be extended.
 
 ## Related integrations
 
