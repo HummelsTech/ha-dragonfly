@@ -130,6 +130,25 @@ def _parse_iso(value: str | None) -> datetime | None:
     return dt
 
 
+def _to_iso_timestamp(value) -> str | None:
+    """Return an ISO 8601 string for an API timestamp field.
+
+    Dragonfly stamps statuses in **epoch milliseconds** (verified on a live
+    parcel: ``last_status.timestamp = 1784203767167``) while the ETA fields
+    are ISO strings — normalise both to the ISO strings the canonical parcel
+    contract expects. Unparseable numbers become ``None``; strings pass
+    through untouched (``_parse_iso`` guards their consumers).
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(value / 1000, tz=timezone.utc).isoformat()
+        except (OverflowError, OSError, ValueError):
+            return None
+    return str(value)
+
+
 def status_label(status: dict | None, key: str = "shortLabel") -> str | None:
     """Return a human-readable label from a Dragonfly status object.
 
@@ -181,7 +200,7 @@ def build_history(
     for status in status_list or []:
         if not isinstance(status, dict):
             continue
-        timestamp = status.get("timestamp")
+        timestamp = _to_iso_timestamp(status.get("timestamp"))
         if not timestamp:
             continue
         entry = {
@@ -222,10 +241,19 @@ def normalize_parcel(raw: dict, *, include_history: bool = False) -> dict:
     step = last_status.get("step")
     delivered = bool(last_status.get("isDelivered")) or step == 4
 
+    # The delivery window: ``public_eta.from/to`` when the worker fills it,
+    # otherwise the top-level ``eta`` / ``buffered_eta`` pair (verified live:
+    # an out-for-delivery parcel carried ``public_eta: null`` but a concrete
+    # ``eta``). A ``buffered_eta`` equal to the ETA is a point estimate, not
+    # a window — collapse it to ``planned_to: None``.
     public_eta = raw.get("public_eta") or {}
     show_eta = bool(last_status.get("showEta")) and last_status.get("etaType") != "none"
-    eta_from = public_eta.get("from") if show_eta else None
-    eta_to = public_eta.get("to") if show_eta else None
+    eta_from = _to_iso_timestamp(public_eta.get("from") or raw.get("eta"))
+    eta_to = _to_iso_timestamp(public_eta.get("to") or raw.get("buffered_eta"))
+    if eta_from and eta_to and _parse_iso(eta_to) == _parse_iso(eta_from):
+        eta_to = None
+    if not show_eta:
+        eta_from = eta_to = None
 
     # ``last_mile_pickup`` is a driver-comes-to-you task (e.g. a return
     # pickup), not a pickup-point delivery — Dragonfly delivers to the door
@@ -242,7 +270,7 @@ def normalize_parcel(raw: dict, *, include_history: bool = False) -> dict:
         "status": map_parcel_status(step),
         "raw_status": status_label(last_status),
         "delivered": delivered,
-        "delivered_at": last_status.get("timestamp") if delivered else None,
+        "delivered_at": _to_iso_timestamp(last_status.get("timestamp")) if delivered else None,
         "planned_from": None if delivered else eta_from,
         "planned_to": None if delivered else eta_to,
         "pickup": is_pickup,

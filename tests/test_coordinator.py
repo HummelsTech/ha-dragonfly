@@ -282,6 +282,73 @@ def test_normalize_missing_client_code_is_none():
     assert parcel["sender"] is None
 
 
+def test_normalize_real_payload_epoch_ms_and_eta_fallback():
+    """Modeled on a live out-for-delivery parcel (July 2026).
+
+    The real worker stamps statuses in epoch **milliseconds** and left
+    ``public_eta: null`` while carrying a concrete top-level ``eta`` whose
+    ``buffered_eta`` was the exact same instant (a point estimate, not a
+    window).
+    """
+    raw = {
+        "version": "v3",
+        "tracking_id": "AMZNL000000000000",
+        "eta": "2026-07-16T17:50:47.000000+02:00",
+        "buffered_eta": "2026-07-16T15:50:47.000Z",
+        "public_eta": None,
+        "client_code": None,
+        "driver_name": None,
+        "last_status": {
+            "timestamp": 1784203767167,
+            "task_type": "last_mile_delivery",
+            "status": 300,
+            "statusCode": 300,
+            "label": "Loaded",
+            "step": 3,
+            "showEta": True,
+            "etaType": "time",
+            "isDelivered": False,
+            "labels": {
+                "shortLabel": {"en": "On our way to you!", "fr": "", "nl": "We zijn onderweg naar je!"},
+            },
+        },
+        "status_list": [
+            {"step": 3, "status": 300, "timestamp": 1784203767167,
+             "labels": {"shortLabel": {"nl": "We zijn onderweg naar je!"}}},
+            {"step": 1, "status": 0, "timestamp": 1784153769791,
+             "labels": {"shortLabel": {"nl": "Je pakket is veilig bij Dragonfly"}}},
+        ],
+    }
+    parcel = normalize_parcel(raw, include_history=True)
+    assert parcel["status"] == ParcelStatus.OUT_FOR_DELIVERY
+    assert parcel["raw_status"] == "We zijn onderweg naar je!"
+    assert parcel["sender"] is None
+    # public_eta null → top-level eta; buffered_eta == eta → no window end
+    assert parcel["planned_from"] == "2026-07-16T17:50:47.000000+02:00"
+    assert parcel["planned_to"] is None
+    # epoch-ms history timestamps become ISO strings, oldest first
+    assert parcel["history"][0]["timestamp"] == "2026-07-15T22:16:09.791000+00:00"
+    assert parcel["history"][0]["status"] == ParcelStatus.REGISTERED
+    assert parcel["history"][-1]["status"] == ParcelStatus.OUT_FOR_DELIVERY
+
+
+def test_normalize_delivered_at_converts_epoch_ms():
+    raw = _delivered_sample()
+    raw["last_status"]["timestamp"] = 1784203767167
+    parcel = normalize_parcel(raw)
+    assert parcel["delivered_at"] == "2026-07-16T12:09:27.167000+00:00"
+
+
+def test_normalize_distinct_buffered_eta_becomes_window_end():
+    raw = _active_sample()
+    raw["public_eta"] = None
+    raw["eta"] = "2026-07-16T16:00:00Z"
+    raw["buffered_eta"] = "2026-07-16T18:00:00Z"
+    parcel = normalize_parcel(raw)
+    assert parcel["planned_from"] == "2026-07-16T16:00:00Z"
+    assert parcel["planned_to"] == "2026-07-16T18:00:00Z"
+
+
 # ---------------------------------------------------------------------------
 # sort_parcels_by_ts
 # ---------------------------------------------------------------------------

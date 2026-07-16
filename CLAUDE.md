@@ -50,6 +50,18 @@ developer blog before introducing anything you only "know" from training.
     `!showEta || etaType == "none"`; `normalize_parcel` gates
     `planned_from/to` the same way.
   - `public_eta.from` / `.to` — the delivery window (`planned_from/to`).
+    **Live-verified caveat (2026-07):** a real out-for-delivery parcel had
+    `public_eta: null` while the top-level `eta` / `buffered_eta` held the
+    estimate — so those are the fallback. A `buffered_eta` equal to the
+    `eta` is a point estimate and collapses to `planned_to: None`.
+  - **Timestamps are epoch milliseconds** on `last_status.timestamp` and
+    every `status_list[].timestamp` (live-verified: `1784203767167`); the
+    ETA fields are ISO strings. `_to_iso_timestamp` normalises both to the
+    ISO strings the canonical contract expects — do not feed raw API
+    timestamps into `delivered_at`/history.
+  - Live status samples: `status`/`statusCode` are numeric (`0` Data
+    received/step 1, `105` Received & `106` Hub station inbound scan/step 2,
+    `300` Loaded/step 3); mapping stays step-based on purpose.
   - `status_list[]` — the history timeline (`{step, timestamp, labels}`),
     ships in the same response, so the opt-in history costs no extra request.
   - **Labels**: every status object embeds localized texts —
