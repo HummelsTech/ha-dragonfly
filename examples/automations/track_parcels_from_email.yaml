@@ -1,0 +1,116 @@
+# Extract Dragonfly tracking codes from incoming e-mail and register them
+# with `dragonfly.track_parcel`, so parcels start tracking the moment the
+# shipping confirmation lands in your inbox — no manual entry.
+#
+# Requirements:
+#   - one or more core IMAP config entries with "text" enabled under
+#     "message data" and the max message size raised (carrier mails are
+#     long) — full setup guide and pitfalls: track_parcels_from_email.md
+#   - optional: an `ai_task` entity for the AI fallback branch; delete
+#     the whole `else:` block if you don't use one
+#
+# The regex is deliberately written without backslashes (`(?<![0-9A-Za-z])`
+# instead of `\b`, `[0-9]` instead of `\d`): Jinja treats `\b` inside a
+# string literal as a backspace escape, so the pattern would silently
+# never match.
+
+alias: "Dragonfly: track from e-mail"
+description: >-
+  Listens to imap_content events from all IMAP entries. Fast regex path for
+  Dragonfly tracking codes; optional AI fallback for mails whose layout the
+  regex does not recognise.
+mode: queued
+max: 10
+
+triggers:
+  - trigger: event
+    event_type: imap_content
+
+variables:
+  sender: "{{ trigger.event.data.sender | default('') | lower }}"
+  subject: "{{ trigger.event.data.subject | default('') }}"
+  body: "{{ trigger.event.data.text | default('') }}"
+  content: "{{ subject ~ ' ' ~ body }}"
+  # Dragonfly codes are prefix + alphanumerics. Two prefixes seen in the
+  # wild: AMZNL… (Amazon NL consignments) and INTLCMB2C… (the format in
+  # the integration's own service example). Add your own prefix to the
+  # alternation if you receive a different one.
+  dragonfly_codes: >-
+    {{ content | regex_findall('(?<![0-9A-Za-z])(?:AMZNL|INTLCMB2C)[0-9A-Za-z]{6,}')
+       | unique | list }}
+  # Keyword gate for the AI fallback — localise to your language(s).
+  is_parcel_mail: >-
+    {{ content | lower is search('pakket|bezorg|track|verzonden|onderweg|zending|shipment|delivery|levering') }}
+
+conditions:
+  # initial=true means "new message"; false means a duplicate trigger of
+  # the SAME message (e.g. after a reconnect) — requiring it is free dedup.
+  - condition: template
+    value_template: "{{ trigger.event.data.initial | default(true) }}"
+  - condition: template
+    value_template: "{{ is_parcel_mail or dragonfly_codes | count > 0 }}"
+
+actions:
+  - repeat:
+      for_each: "{{ dragonfly_codes }}"
+      sequence:
+        - action: dragonfly.track_parcel
+          data:
+            tracking_code: "{{ repeat.item }}"
+  - if:
+      - condition: template
+        value_template: "{{ dragonfly_codes | count > 0 }}"
+    then:
+      - action: notify.mobile_app_your_phone
+        data:
+          title: "📦 Dragonfly parcel picked up from mail"
+          message: >-
+            {{ dragonfly_codes | join(', ') }} (mail from {{ sender }})
+    else:
+      # ---- Optional AI fallback — delete this block if you have no ai_task entity ----
+      - action: ai_task.generate_data
+        data:
+          task_name: dragonfly-tracking-code-extraction
+          entity_id: ai_task.your_ai_task_entity
+          instructions: >-
+            Below is an e-mail. Determine whether it contains a Dragonfly
+            (formerly Intelcom) parcel tracking code. Dragonfly codes are
+            6-30 uppercase letters and digits, usually starting with a
+            prefix such as AMZNL or INTLCMB2C. Only return a real track &
+            trace code, never an order, customer or invoice number. If the
+            mail is from a different carrier, answer 'other'. When in
+            doubt: 'none'.
+
+            Sender: {{ sender }}
+            Subject: {{ subject }}
+            Body:
+            {{ body[:6000] }}
+          structure:
+            carrier:
+              description: Whether a Dragonfly tracking code was found
+              required: true
+              selector:
+                select:
+                  options: ["dragonfly", "other", "none"]
+            tracking_code:
+              description: The tracking code, or empty if none
+              required: false
+              selector:
+                text:
+        response_variable: ai_result
+      - choose:
+          - conditions: "{{ ai_result.data.carrier == 'dragonfly' and (ai_result.data.tracking_code | default('') | trim) != '' }}"
+            sequence:
+              - action: dragonfly.track_parcel
+                data:
+                  tracking_code: "{{ ai_result.data.tracking_code | trim }}"
+              - action: notify.mobile_app_your_phone
+                data:
+                  title: "📦 Dragonfly parcel picked up from mail (AI)"
+                  message: "{{ ai_result.data.tracking_code | trim }} (mail from {{ sender }})"
+          - conditions: "{{ ai_result.data.carrier == 'other' and (ai_result.data.tracking_code | default('') | trim) != '' }}"
+            sequence:
+              - action: notify.mobile_app_your_phone
+                data:
+                  title: "📦 Tracking number found – not a Dragonfly parcel"
+                  message: "{{ ai_result.data.tracking_code | trim }} (mail from {{ sender }}, subject: {{ subject }})"
