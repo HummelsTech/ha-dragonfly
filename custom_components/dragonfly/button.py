@@ -10,21 +10,13 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import DragonflyConfigEntry
 from .const import DOMAIN
+from .device import build_device_info
 
 # A manual refresh is a single API round-trip per tracked parcel; HA's
 # per-entity throttling adds nothing here.
 PARALLEL_UPDATES = 0
 
 
-def _build_device_info(entry: ConfigEntry) -> DeviceInfo:
-    """Return the DeviceInfo shared with this hub's sensors."""
-    return DeviceInfo(
-        identifiers={(DOMAIN, entry.entry_id)},
-        name="Dragonfly",
-        manufacturer="Dragonfly Shipping",
-        entry_type=DeviceEntryType.SERVICE,
-        configuration_url="https://dragonflyshipping.nl",
-    )
 
 
 async def async_setup_entry(
@@ -46,7 +38,7 @@ class DragonflyRefreshButton(ButtonEntity):
     def __init__(self, entry: DragonflyConfigEntry) -> None:
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_refresh"
-        self._attr_device_info = _build_device_info(entry)
+        self._attr_device_info = build_device_info(entry)
 
     async def async_press(self) -> None:
         """Trigger an immediate refresh of the coordinator."""

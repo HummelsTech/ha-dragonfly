@@ -22,6 +22,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import DragonflyConfigEntry
 from .const import DOMAIN
 from .coordinator import DragonflyCoordinator
+from .device import build_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,15 +31,6 @@ _LOGGER = logging.getLogger(__name__)
 PARALLEL_UPDATES = 0
 
 
-def _build_device_info(entry: ConfigEntry) -> DeviceInfo:
-    """Return the DeviceInfo shared by every entity of the Dragonfly hub."""
-    return DeviceInfo(
-        identifiers={(DOMAIN, entry.entry_id)},
-        name="Dragonfly",
-        manufacturer="Dragonfly Shipping",
-        entry_type=DeviceEntryType.SERVICE,
-        configuration_url="https://dragonflyshipping.nl",
-    )
 
 
 async def async_setup_entry(
@@ -121,7 +113,7 @@ class DragonflyIncomingParcelsSensor(
         self._entry = entry
         self._async_add_entities = async_add_entities
         self._attr_unique_id = f"{entry.entry_id}_incoming_parcels"
-        self._attr_device_info = _build_device_info(entry)
+        self._attr_device_info = build_device_info(entry)
         self._known_barcodes: set[str] = known_barcodes or set()
 
     @property
@@ -174,7 +166,7 @@ class DragonflyParcelSensor(CoordinatorEntity[DragonflyCoordinator], SensorEntit
         self._barcode = barcode
         self._attr_unique_id = f"{entry.entry_id}_{barcode}"
         self._attr_translation_placeholders = {"barcode": barcode}
-        self._attr_device_info = _build_device_info(entry)
+        self._attr_device_info = build_device_info(entry)
 
     def _get_parcel(self) -> dict[str, Any] | None:
         for parcel in self.coordinator.data or []:
@@ -208,7 +200,7 @@ class DragonflyNextDeliverySensor(
     ) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_next_delivery"
-        self._attr_device_info = _build_device_info(entry)
+        self._attr_device_info = build_device_info(entry)
 
     def _delivery_moments(self) -> list[tuple[datetime, dict]]:
         result: list[tuple[datetime, dict]] = []
@@ -259,7 +251,7 @@ class DragonflyDeliveredParcelsSensor(
     ) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_delivered_parcels"
-        self._attr_device_info = _build_device_info(entry)
+        self._attr_device_info = build_device_info(entry)
 
     @property
     def native_value(self) -> int:
@@ -286,7 +278,7 @@ class DragonflyLastUpdateSensor(
     ) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_last_update"
-        self._attr_device_info = _build_device_info(entry)
+        self._attr_device_info = build_device_info(entry)
 
     @property
     def native_value(self) -> datetime | None:

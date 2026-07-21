@@ -15,21 +15,13 @@ from homeassistant.util import dt as dt_util
 from . import DragonflyConfigEntry
 from .const import DOMAIN
 from .coordinator import DragonflyCoordinator
+from .device import build_device_info
 
 PARALLEL_UPDATES = 0
 
 _DEFAULT_EVENT_DURATION = timedelta(hours=1)
 
 
-def _build_device_info(entry: ConfigEntry) -> DeviceInfo:
-    """Return the DeviceInfo shared with this hub's sensors."""
-    return DeviceInfo(
-        identifiers={(DOMAIN, entry.entry_id)},
-        name="Dragonfly",
-        manufacturer="Dragonfly Shipping",
-        entry_type=DeviceEntryType.SERVICE,
-        configuration_url="https://dragonflyshipping.nl",
-    )
 
 
 def _parse(value: str | None) -> datetime | None:
@@ -68,7 +60,7 @@ class DragonflyDeliveriesCalendar(CoordinatorEntity[DragonflyCoordinator], Calen
     def __init__(self, coordinator: DragonflyCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_deliveries"
-        self._attr_device_info = _build_device_info(entry)
+        self._attr_device_info = build_device_info(entry)
 
     def _events(self) -> list[CalendarEvent]:
         events: list[CalendarEvent] = []
