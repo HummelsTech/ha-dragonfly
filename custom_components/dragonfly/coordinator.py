@@ -46,7 +46,13 @@ _STEP_MAP: dict[int, ParcelStatus] = {
     4: ParcelStatus.DELIVERED,         # Afgeleverd
 }
 
-_NEW_ISSUE_URL = "https://github.com/ha-parcel-integrations/ha-dragonfly/issues/new"
+# Points at the pre-filled issue template rather than a blank form, so a
+# user following this link from their log lands somewhere that already
+# asks the right questions.
+_NEW_ISSUE_URL = (
+    "https://github.com/ha-parcel-integrations/ha-dragonfly/issues/new"
+    "?template=unrecognised_status.yml"
+)
 
 # ``[link <url>]text[/link]`` markup inside API labels — keep the inner text.
 _LABEL_LINK_RE = re.compile(r"\[link .+?\](.+?)\[/link\]", re.IGNORECASE)
